@@ -13,7 +13,12 @@
                  [org.clojure/core.async  "0.4.474"]
                  [reagent "0.7.0"]
                  [clj-http "3.9.0"]
-                 [environ "1.1.0"]]
+                 [environ "1.1.0"]
+                 [com.rpl/specter "1.1.1"]
+                 [cheshire "5.8.0"]
+                 [com.cerner/clara-rules "0.18.0"]
+                 [core.logic "0.6.1-SNAPSHOT"]
+                 [org.clojure/core.logic "0.8.11"]]
 
   :plugins [[lein-figwheel "0.5.16"]
             [lein-cljsbuild "1.1.7" :exclusions [[org.clojure/clojure]]]]
