@@ -1,0 +1,9 @@
+<component name="libraryTable">
+  <library name="Leiningen: core.logic:0.6.1-SNAPSHOT">
+    <CLASSES>
+      <root url="jar://$MAVEN_REPOSITORY$/core/logic/core.logic/0.6.1-SNAPSHOT/core.logic-0.6.1-SNAPSHOT.jar!/" />
+    </CLASSES>
+    <JAVADOC />
+    <SOURCES />
+  </library>
+</component>
