@@ -1,0 +1,16 @@
+# -*- mode:org -*-
+#+TITLE: music-classifier
+#+STARTUP: indent
+#+OPTIONS: toc:nil
+Use Spotify's audio feature extraction to build playlists
+
+** Overview :TOC:
+- [[#installation][Installation]]
+- [[#usage][Usage]]
+- [[#implementation][Implementation]]
+
+* Installation
+Import into IDE, no jars being produced yet
+* Usage
+at the moment, get a repl in Emacs or Cursive and start a
+* [[file:src/music_classifier/core.org][Implementation]]
