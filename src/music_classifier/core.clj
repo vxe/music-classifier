@@ -1,8 +1,12 @@
+
 (ns music-classifier.core
   (:require [clj-http.client])
   (:use [com.rpl.specter]
         [clojure.core.logic :exclude [pred]]
         [clojure.java.shell :only [sh]]))
+
+(defn encode-base64 [original]
+  (String. (b64/encode (.getBytes original)) "UTF-8"))
 
 (def track-count 220)
 
@@ -186,6 +190,37 @@
   (remove nil? (for [[k v] @analyzed-tracks]
                 (if (comparison (first (select [:acousticness] v)) acousticness)
                   (:id v)))))
+
+(def client-id (atom ""))
+
+(defn set-client-id []
+  (let [id (do (println "What's your client id: ") (flush) (read-line))]
+    (reset! client-id id)))
+
+(def client-secret (atom ""))
+
+(defn set-client-secret []
+  (let [secret (do (println "What's your client secret: ") (flush) (read-line))]
+    (reset! client-secret secret)))
+
+(def refresh-token (atom ""))
+
+(defn set-client-refresh-token []
+  (let [token (do (println "What's your client refresh-token: ") (flush) (read-line))]
+    (reset! refresh-token token)))
+
+(defn refresh-access-token []
+  (sh "curl"
+      "-s"
+      "-H"
+      (str "Authorization: Basic " (str (encode-base64 @client-id)
+                                       ":"
+                                       (encode-base64 @client-secret)))
+      "-d"
+      "grant_type=refresh_token"
+      "-d"
+      (str "refresh_token=" @refresh-token)
+      "https://accounts.spotify.com/api/token"))
 
 (defn login []
   (let

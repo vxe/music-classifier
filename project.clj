@@ -18,7 +18,9 @@
                  [cheshire "5.8.0"]
                  [com.cerner/clara-rules "0.18.0"]
                  [core.logic "0.6.1-SNAPSHOT"]
-                 [org.clojure/core.logic "0.8.11"]]
+                 [org.clojure/core.logic "0.8.11"]
+                 [org.clojure/data.codec ""]
+                 [org.clojure/data.codec "0.1.1"]]
 
   :plugins [[lein-figwheel "0.5.16"]
             [lein-cljsbuild "1.1.7" :exclusions [[org.clojure/clojure]]]]

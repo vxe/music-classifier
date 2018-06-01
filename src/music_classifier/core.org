@@ -12,6 +12,14 @@
         [clojure.java.shell :only [sh]]))
 
 #+END_SRC
+
+** utilities
+*** character encoding
+**** base64
+#+BEGIN_SRC clojure :tangle core.clj
+(defn encode-base64 [original]
+  (String. (b64/encode (.getBytes original)) "UTF-8"))
+#+END_SRC
 ** core application state
 *** TODO number of tracks - generate this dynamically
 #+BEGIN_SRC clojure :tangle core.clj
@@ -25,27 +33,30 @@
 #+BEGIN_SRC clojure :tangle core.clj
   (def offsets [0 50 100 150 200 track-count])
 #+END_SRC
-*** api token
+*** api authorizaation
+**** access token
  #+BEGIN_SRC clojure :tangle core.clj
   (def token (atom ""))
  #+END_SRC
+
+
 ** third party data fetch
 *** all track data
  #+BEGIN_SRC clojure :tangle core.clj
-  (defn get-all-library-tracks []
-    (flatten
-     (distinct
-      (for [offset offsets]
-        (select [ALL :track]
-                (second
+   (defn get-all-library-tracks []
+     (flatten
+      (distinct
+       (for [offset offsets]
+         (select [ALL :track]
                  (second
-                  (cheshire.core/parse-string
-                   (:out
-                    (sh "curl"
-                        "-s"
-                        "-H"
-                        @token
-                        (str "https://api.spotify.com/v1/me/tracks?limit=50&offset=" offset))) true))))))))
+                  (second
+                   (cheshire.core/parse-string
+                    (:out
+                     (sh "curl"
+                         "-s"
+                         "-H"
+                         @token
+                         (str "https://api.spotify.com/v1/me/tracks?limit=50&offset=" offset))) true))))))))
  #+END_SRC
 *** all track ids
  #+BEGIN_SRC clojure :tangle core.clj
@@ -292,6 +303,68 @@
 *** TODO add new track records
 *** TODO load track records into memory
 ** cli
+*** client id
+#+BEGIN_SRC clojure :tangle core.clj
+(def client-id (atom ""))
+#+END_SRC
+*** set client id
+#+BEGIN_SRC clojure :tangle core.clj
+  (defn set-client-id []
+    (let [id (do (println "What's your client id: ") (flush) (read-line))]
+      (reset! client-id id)))
+#+END_SRC
+*** client secret
+#+BEGIN_SRC clojure :tangle core.clj
+(def client-secret (atom ""))
+#+END_SRC
+
+*** set client secret
+#+BEGIN_SRC clojure :tangle core.clj
+  (defn set-client-secret []
+    (let [secret (do (println "What's your client secret: ") (flush) (read-line))]
+      (reset! client-secret secret)))
+#+END_SRC
+*** refresh token
+#+BEGIN_SRC clojure :tangle core.clj
+(def refresh-token (atom ""))
+#+END_SRC
+*** set refresh token
+#+BEGIN_SRC clojure :tangle core.clj
+  (defn set-client-refresh-token []
+    (let [token (do (println "What's your client refresh-token: ") (flush) (read-line))]
+      (reset! refresh-token token)))
+#+END_SRC
+*** TODO refresh api token - fix client id auth issue
+essentially this should return a json value which looks like this
+#+BEGIN_EXAMPLE json
+{
+   "access_token": "NgA6ZcYI...ixn8bUQ",
+   "token_type": "Bearer",
+   "scope": "user-read-private user-read-email",
+   "expires_in": 3600
+}
+#+END_EXAMPLE
+
+containing a new access token, from this do a reset! of token and all should be well.
+
+after this basically all callers should try catch the request, and in the of a timeout
+do a blocking refresh call and then retry the whole request
+
+
+#+BEGIN_SRC clojure :tangle core.clj
+  (defn refresh-access-token []
+    (sh "curl"
+        "-s"
+        "-H"
+        (str "Authorization: Basic " (str (encode-base64 @client-id)
+                                         ":"
+                                         (encode-base64 @client-secret)))
+        "-d"
+        "grant_type=refresh_token"
+        "-d"
+        (str "refresh_token=" @refresh-token)
+        "https://accounts.spotify.com/api/token"))
+#+END_SRC
 *** login
 #+BEGIN_SRC clojure :tangle core.clj
   (defn login []
