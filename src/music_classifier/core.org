@@ -5,12 +5,12 @@
 
 ** namespace
 #+BEGIN_SRC clojure :tangle core.clj
-    (ns music-classifier.core
-      (:require [clj-http.client]
-                [clojure.data.codec.base64 :as b64])
-      (:use [com.rpl.specter]
-            [clojure.core.logic :exclude [pred]]
-            [clojure.java.shell :only [sh]]))
+  (ns music-classifier.core
+    (:require [clj-http.client]
+              [clojure.data.codec.base64 :as b64])
+    (:use [com.rpl.specter]
+          [clojure.core.logic :exclude [pred]]
+          [clojure.java.shell :only [sh]]))
 
 #+END_SRC
 
