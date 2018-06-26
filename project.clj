@@ -19,13 +19,23 @@
                  [com.cerner/clara-rules "0.18.0"]
                  [core.logic "0.6.1-SNAPSHOT"]
                  [org.clojure/core.logic "0.8.11"]
-                 [org.clojure/data.codec ""]
                  [org.clojure/data.codec "0.1.1"]]
 
   :plugins [[lein-figwheel "0.5.16"]
             [lein-cljsbuild "1.1.7" :exclusions [[org.clojure/clojure]]]]
 
   :source-paths ["src"]
+
+  :main music-classifier.core
+  :aot :all
+  :repl-options {:init-ns music-classifier.core}
+  
+  :ring {:handler auto-sre.api/handler
+         :nrepl {:start? true
+                 :port 9002
+                 }
+         }
+  
 
   :cljsbuild {:builds
               [{:id "dev"
@@ -59,7 +69,7 @@
                            :optimizations :advanced
                            :pretty-print false}}]}
 
-  :figwheel {;; :http-server-root "public" ;; default and assumes "resources"
+  :figwheel { ;; :http-server-root "public" ;; default and assumes "resources"
              ;; :server-port 3449 ;; default
              ;; :server-ip "127.0.0.1"
 

@@ -1,6 +1,6 @@
-
 (ns music-classifier.core
-  (:require [clj-http.client])
+  (:require [clj-http.client]
+            [clojure.data.codec.base64 :as b64])
   (:use [com.rpl.specter]
         [clojure.core.logic :exclude [pred]]
         [clojure.java.shell :only [sh]]))
@@ -236,3 +236,6 @@
 
 (defn debug:find-nil-tracks []
   (select [ALL ALL #(= nil (:valence %))]  @analyzed-tracks))
+
+(defn -main []
+(println "hello world"))
