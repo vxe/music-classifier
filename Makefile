@@ -12,3 +12,7 @@ release: tangle
 
 repl: tangle
 	lein clean && lein repl
+
+run: tangle
+	lein run
+
