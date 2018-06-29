@@ -9,5 +9,10 @@ server: tangle
 
 release: tangle
 	lein clean && lein uberjar
+
+repl: tangle
+	lein clean && lein repl
+
 run: tangle
 	lein run
+

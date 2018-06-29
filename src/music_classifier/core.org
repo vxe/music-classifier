@@ -3,7 +3,6 @@
 #+STARTUP: indent
 #+OPTIONS: toc:nil
 
-** namespace
 #+BEGIN_SRC clojure :tangle core.clj
   (ns music-classifier.core
     (:require [clj-http.client]
@@ -250,5 +249,4 @@
 
 (defn -main []
 (println "hello world"))
-
 #+END_SRC
