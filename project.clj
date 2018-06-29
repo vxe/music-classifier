@@ -11,8 +11,18 @@
   :dependencies [[org.clojure/clojure "1.9.0"]
                  [org.clojure/clojurescript "1.10.238"]
                  [org.clojure/core.async  "0.4.474"]
+                 [org.clojure/tools.logging "0.2.4"]
+                 [org.slf4j/slf4j-log4j12 "1.7.1"]
+                 [log4j/log4j "1.2.17" :exclusions [javax.mail/mail
+                                                    javax.jms/jms
+                                                    com.sun.jmdk/jmxtools
+                                                    com.sun.jmx/jmxri]]
+
                  [reagent "0.7.0"]
                  [clj-http "3.9.0"]
+                 [liberator "0.15.1"]
+                 [compojure "1.6.0"]
+                 [ring/ring-core "1.6.3"]
                  [environ "1.1.0"]
                  [com.rpl/specter "1.1.1"]
                  [cheshire "5.8.0"]
@@ -23,9 +33,20 @@
                  [org.clojure/data.codec "0.1.1"]]
 
   :plugins [[lein-figwheel "0.5.16"]
+            [lein-ring "0.12.4"]
             [lein-cljsbuild "1.1.7" :exclusions [[org.clojure/clojure]]]]
 
+
+  ;; :main music-classifier.data
+  :aot :all
+  :repl-options {:init-ns music-classifier.data}
+  :ring {:handler music-classifier.api/handler
+         :nrepl {:start? true
+                 :port 9000
+                 }
+         }
   :source-paths ["src"]
+  
 
   :cljsbuild {:builds
               [{:id "dev"
@@ -59,7 +80,7 @@
                            :optimizations :advanced
                            :pretty-print false}}]}
 
-  :figwheel {;; :http-server-root "public" ;; default and assumes "resources"
+  :figwheel { ;; :http-server-root "public" ;; default and assumes "resources"
              ;; :server-port 3449 ;; default
              ;; :server-ip "127.0.0.1"
 
