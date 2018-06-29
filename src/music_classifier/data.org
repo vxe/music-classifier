@@ -28,26 +28,7 @@
  (def pitch-keys {:c 0 :c# 1 :d 2 :d# 3 :e 4 :f 5 :f# 6 :g 7 :g# 8 :a 9 :a# 10 :b 11})
  #+END_SRC
 * components
-* experimental
-** core application state
-*** TODO number of tracks - generate this dynamically
-#+BEGIN_SRC clojure :tangle data.clj
-  (def track-count 220)
-#+END_SRC
-
-*** TODO offsets to download data incrementally - generate this dynamicall from track count
-    this is because Spotify only lets you download 50 songs at a time, this is used to batch the query
-
-    basically if you know the max count you just need to find the closest multiple of 50, then subtract 50 from that sequentially until at zero
-#+BEGIN_SRC clojure :tangle data.clj
-  (def offsets [0 50 100 150 200 track-count])
-#+END_SRC
-*** api authorizaation
-**** access token
-
-** ---above this needs refactored ---
-
-** _spotify-api-fetch
+** _login system
 *** reference types
 **** atoms (D_...--atm)
 ***** authorization code
@@ -86,19 +67,30 @@
 #+END_SRC
 ***** access token
  #+BEGIN_SRC clojure :tangle data.clj
-      (def D_access-token--atm (atom ""))
+             (def D_access-token--atm (atom ""))
 
-      ;; (defn D_set-access-token! []
-      ;;   (let
-      ;;       [key (do (println "What's yourkey: ") (flush) (read-line))]
-      ;;     (do
-      ;;       (reset! D_access-token--atm (str "Authorization: Bearer " key)))))
+    (defn D_set-access-token! []
+      (reset! D_refresh-token--atm
+                         (-> "curl"
+                             (sh
+                              "-s"
+                              "-H"
+                              (str "Authorization: Basic " (encode-base64 (str
+                                                                           @D_client-id--atm
+                                                                           ":"
+                                                                           @D_client-secret--atm)))
+                              "-d"
+                              "grant_type=authorization_code"
+                              "-d"
+                              (str "code=" @D_authorization-code--atm)
+                              "-d"
+                              (str "redirect_uri=" "http%3A%2F%2Flocalhost:8888%2Fcallback")
+                              "https://accounts.spotify.com/api/token")
+                             :out
+                             (cheshire.core/parse-string true)
+                             :refresh_token)))
 
-
-      ;; (defn D_set-access-token! [auth]
-      ;;   (reset! D_access-token--atm (str "Authorization: Bearer " auth)))
-
-   (defn D_set-access-token! []
+   (defn D_refresh-access-token! []
      (reset! D_access-token--atm
              (-> "curl"
                  (sh
@@ -109,35 +101,43 @@
                                                                ":"
                                                                @D_client-secret--atm)))
                   "-d"
-                  "grant_type=authorization_code"
+                  "grant_type=refresh_token"
                   "-d"
-                  (str "code=" @D_authorization-code--atm)
-                  "-d"
-                  (str "redirect_uri=" "http%3A%2F%2Flocalhost:8888%2Fcallback")
+                  (str "refresh_token=" @D_refresh-token--atm)
                   "https://accounts.spotify.com/api/token")
                  :out
                  (cheshire.core/parse-string true)
                  :access_token)))
 
-      (defn D_refresh-access-token! []
-        (reset! D_access-token--atm
-                (-> "curl"
-                    (sh
-                     "-s"
-                     "-H"
-                     (str "Authorization: Basic " (encode-base64 (str
-                                                                  @D_client-id--atm
-                                                                  ":"
-                                                                  @D_client-secret--atm)))
-                     "-d"
-                     "grant_type=refresh_token"
-                     "-d"
-                     (str "refresh_token=" @D_refresh-token--atm)
-                     "https://accounts.spotify.com/api/token")
-                    :out
-                    (cheshire.core/parse-string true)
-                    :access_token)))
+             ;; (defn D_set-refresh-access-token! []
+             ;;   (reset! D_access-token--atm
+             ;;           (-> "curl"
+             ;;               (sh
+             ;;                "-s"
+             ;;                "-H"
+             ;;                (str "Authorization: Basic " (encode-base64 (str
+             ;;                                                             @D_client-id--atm
+             ;;                                                             ":"
+             ;;                                                             @D_client-secret--atm)))
+             ;;                "-d"
+             ;;                "grant_type=refresh_token"
+             ;;                "-d"
+             ;;                (str "refresh_token=" @D_refresh-token--atm)
+             ;;                "https://accounts.spotify.com/api/token")
+             ;;               :out
+             ;;               (cheshire.core/parse-string true)
+             ;;               :access_token)))
  #+END_SRC
+**** agents (D_...--agt)
+**** refs (D_...--ref)
+*** IO
+**** web (io_...--web)
+**** database (io_...--db)
+**** filesystem (io_...--fs)
+*** compute
+** _spotify-api-fetch system
+*** reference types
+**** atoms (D_...--atm)
 **** agents (D_...--agt)
 **** refs (D_...--ref)
 *** IO
@@ -153,7 +153,7 @@
                 (sh "curl"
                     "-s"
                     "-H"
-                    @D_access-token--atm
+                    (str "Authorization: Bearer " @D_access-token--atm)
                     (str "https://api.spotify.com/v1/me/tracks?limit=10"))) true)
                   (catch Exception e
               (do (D_refresh-access-token!)
@@ -165,13 +165,12 @@
                         @D_access-token--atm
                         (str "https://api.spotify.com/v1/me/tracks?limit=10"))) true)))))))
       #+END_SRC
-***** get all tracks from library
+***** TODO get all tracks from library use refreshable endpoint call
  #+BEGIN_SRC clojure :tangle data.clj
-   (defn io_get-all-library-track-names--web--web []
+   (defn io_get-all-library-track-names--web []
      (flatten
       (distinct
-       (for [offset offsets]
-         (select [ALL :track]
+       (select [ALL :track]
                  (second
                   (second
                    (cheshire.core/parse-string
@@ -180,45 +179,45 @@
                          "-s"
                          "-H"
                          @D_access-token--atm
-                         (str "https://api.spotify.com/v1/me/tracks?limit=10&offset=" offset))) true))))))))
+                         (str "https://api.spotify.com/v1/me/tracks?limit=10"))) true)))))))
  #+END_SRC
-***** get all track ids from library
+***** TODO get all track ids from library use refreshable endpoint call
  #+BEGIN_SRC clojure :tangle data.clj
-  (defn io_get-all-library-track-ids--web []
-    (flatten
-     (distinct
-      (for [offset offsets]
-        (select [ALL :track :id]
-                (second
+   (defn io_get-all-library-track-ids--web []
+     (flatten
+      (distinct
+       (select [ALL :track :id]
                  (second
-                  (cheshire.core/parse-string
-                   (:out
-                    (sh "curl"
-                        "-s"
-                        "-H"
-                        @D_access-token--atm
-                        (str "https://api.spotify.com/v1/me/tracks?limit=50&offset=" offset))) true))))))))
+                  (second
+                   (cheshire.core/parse-string
+                    (:out
+                     (sh "curl"
+                         "-s"
+                         "-H"
+                         @D_access-token--atm
+                         (str "https://api.spotify.com/v1/me/tracks?limit=50"))) true))))
+   )))
  #+END_SRC
-***** get all track names from library
+***** TODO get all track names from library use refreshable endpoint call
  #+BEGIN_SRC clojure :tangle data.clj
-  (defn io_get-all-library-track-names--web []
-    (flatten
-     (distinct
-      (for [offset offsets]
-        (select [ALL :track :name]
-                (second
+   (defn io_get-all-library-track-names--web []
+     (flatten
+      (distinct
+       (select [ALL :track :name]
                  (second
-                  (cheshire.core/parse-string
-                   (:out
-                    (sh "curl"
-                        "-s"
-                        "-H"
-                        @D_access-token--atm
-                        (str "https://api.spotify.com/v1/me/tracks?limit=50&offset=" offset))) true))))))))
+                  (second
+                   (cheshire.core/parse-string
+                    (:out
+                     (sh "curl"
+                         "-s"
+                         "-H"
+                         @D_access-token--atm
+                         (str "https://api.spotify.com/v1/me/tracks?limit=50"))) true)))))))
  #+END_SRC
 **** database (io_...--db)
 **** filesystem (io_...--fs)
 *** compute
+* experimental
 ** internal data structures
 *** track id to name mapping
     #+BEGIN_SRC clojure :tangle data.clj
@@ -473,22 +472,11 @@ do a blocking refresh call and then retry the whole request
                  "-d"
                  "grant_type=refresh_token"
                  "-d"
-                 (str "refresh_token=" @D_access-token--atm)
+                 (str "refresh_token=" @D_refresh-token--atm)
                  "https://accounts.spotify.com/api/token")
                 :out
                 (cheshire.core/parse-string true)
                 :access_token)))
-#+END_SRC
-*** login
-#+BEGIN_SRC clojure :tangle data.clj
-  (defn login []
-    (let
-        [key (do (println "What's yourkey: ") (flush) (read-line))]
-      (do
-;        (count (build-track-id-map))
-;        (count (analyze-library))
-        (reset! D_access-token--atm (str "Authorization: Bearer " key)))))
-
 #+END_SRC
 ** debug
 #+BEGIN_SRC clojure :tangle data.clj

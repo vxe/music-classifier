@@ -13,13 +13,9 @@
 
 (def pitch-keys {:c 0 :c# 1 :d 2 :d# 3 :e 4 :f 5 :f# 6 :g 7 :g# 8 :a 9 :a# 10 :b 11})
 
-(def track-count 220)
-
-(def offsets [0 50 100 150 200 track-count])
-
 (def D_authorization-code--atm (atom ""))
 
-(defn D-set-authorization-code! [resp]
+(defn D_set-authorization-code! [resp]
   (reset! D_authorization-code--atm resp))
 
 (def D_client-id--atm (atom ""))
@@ -33,25 +29,39 @@
 (defn D_set-client-secret--atm [secret]
   (reset! D_client-secret--atm secret))
 
-(def D-refresh-token--atm (atom ""))
+(def D_refresh-token--atm (atom ""))
 
-(defn D-set-client-refresh-token! []
-  (let [token (do (println "What's your client refresh-token: ") (flush) (read-line))]
-    (reset! D-refresh-token--atm token)))
+;; (defn D-set-client-refresh-token! []
+;;   (let [token (do (println "What's your client refresh-token: ") (flush) (read-line))]
+;;     (reset! D-refresh-token--atm token)))
+
+(defn D_set-client-refresh-token! [token]
+  (reset! D_refresh-token--atm token))
 
 (def D_access-token--atm (atom ""))
 
-   ;; (defn D_set-access-token! []
-   ;;   (let
-   ;;       [key (do (println "What's yourkey: ") (flush) (read-line))]
-   ;;     (do
-   ;;       (reset! D_access-token--atm (str "Authorization: Bearer " key)))))
+ (defn D_set-access-token! []
+   (reset! D_refresh-token--atm
+                      (-> "curl"
+                          (sh
+                           "-s"
+                           "-H"
+                           (str "Authorization: Basic " (encode-base64 (str
+                                                                        @D_client-id--atm
+                                                                        ":"
+                                                                        @D_client-secret--atm)))
+                           "-d"
+                           "grant_type=authorization_code"
+                           "-d"
+                           (str "code=" @D_authorization-code--atm)
+                           "-d"
+                           (str "redirect_uri=" "http%3A%2F%2Flocalhost:8888%2Fcallback")
+                           "https://accounts.spotify.com/api/token")
+                          :out
+                          (cheshire.core/parse-string true)
+                          :refresh_token)))
 
-
-   ;; (defn D_set-access-token! [auth]
-   ;;   (reset! D_access-token--atm (str "Authorization: Bearer " auth)))
-
-(defn D_set-access-token! []
+(defn D_refresh-access-token! []
   (reset! D_access-token--atm
           (-> "curl"
               (sh
@@ -62,34 +72,32 @@
                                                             ":"
                                                             @D_client-secret--atm)))
                "-d"
-               "grant_type=authorization_code"
+               "grant_type=refresh_token"
                "-d"
-               (str "code=" @D_authorization-code--atm)
-               "-d"
-               (str "redirect_uri=" "http%3A%2F%2Flocalhost:8888%2Fauth")
+               (str "refresh_token=" @D_refresh-token--atm)
                "https://accounts.spotify.com/api/token")
               :out
               (cheshire.core/parse-string true)
               :access_token)))
 
-   (defn D_refresh-access-token! []
-     (reset! D_access-token--atm
-             (-> "curl"
-                 (sh
-                  "-s"
-                  "-H"
-                  (str "Authorization: Basic " (encode-base64 (str
-                                                               @D_client-id--atm
-                                                               ":"
-                                                               @D_client-secret--atm)))
-                  "-d"
-                  "grant_type=refresh_token"
-                  "-d"
-                  (str "refresh_token=" @D_access-token--atm)
-                  "https://accounts.spotify.com/api/token")
-                 :out
-                 (cheshire.core/parse-string true)
-                 :access_token)))
+          ;; (defn D_set-refresh-access-token! []
+          ;;   (reset! D_access-token--atm
+          ;;           (-> "curl"
+          ;;               (sh
+          ;;                "-s"
+          ;;                "-H"
+          ;;                (str "Authorization: Basic " (encode-base64 (str
+          ;;                                                             @D_client-id--atm
+          ;;                                                             ":"
+          ;;                                                             @D_client-secret--atm)))
+          ;;                "-d"
+          ;;                "grant_type=refresh_token"
+          ;;                "-d"
+          ;;                (str "refresh_token=" @D_refresh-token--atm)
+          ;;                "https://accounts.spotify.com/api/token")
+          ;;               :out
+          ;;               (cheshire.core/parse-string true)
+          ;;               :access_token)))
 
 (defn io_hit-api-endpoint--web [endpoint]
   (second
@@ -100,7 +108,7 @@
         (sh "curl"
             "-s"
             "-H"
-            @D_access-token--atm
+            (str "Authorization: Bearer " @D_access-token--atm)
             (str "https://api.spotify.com/v1/me/tracks?limit=10"))) true)
           (catch Exception e
       (do (D_refresh-access-token!)
@@ -112,11 +120,10 @@
                 @D_access-token--atm
                 (str "https://api.spotify.com/v1/me/tracks?limit=10"))) true)))))))
 
-(defn io_get-all-library-track-names--web--web []
+(defn io_get-all-library-track-names--web []
   (flatten
    (distinct
-    (for [offset offsets]
-      (select [ALL :track]
+    (select [ALL :track]
               (second
                (second
                 (cheshire.core/parse-string
@@ -125,13 +132,12 @@
                       "-s"
                       "-H"
                       @D_access-token--atm
-                      (str "https://api.spotify.com/v1/me/tracks?limit=10&offset=" offset))) true))))))))
+                      (str "https://api.spotify.com/v1/me/tracks?limit=10"))) true)))))))
 
 (defn io_get-all-library-track-ids--web []
   (flatten
    (distinct
-    (for [offset offsets]
-      (select [ALL :track :id]
+    (select [ALL :track :id]
               (second
                (second
                 (cheshire.core/parse-string
@@ -140,13 +146,13 @@
                       "-s"
                       "-H"
                       @D_access-token--atm
-                      (str "https://api.spotify.com/v1/me/tracks?limit=50&offset=" offset))) true))))))))
+                      (str "https://api.spotify.com/v1/me/tracks?limit=50"))) true))))
+)))
 
 (defn io_get-all-library-track-names--web []
   (flatten
    (distinct
-    (for [offset offsets]
-      (select [ALL :track :name]
+    (select [ALL :track :name]
               (second
                (second
                 (cheshire.core/parse-string
@@ -155,7 +161,7 @@
                       "-s"
                       "-H"
                       @D_access-token--atm
-                      (str "https://api.spotify.com/v1/me/tracks?limit=50&offset=" offset))) true))))))))
+                      (str "https://api.spotify.com/v1/me/tracks?limit=50"))) true)))))))
 
 (def track-id-name-map (atom {}))
 
@@ -308,19 +314,11 @@
                "-d"
                "grant_type=refresh_token"
                "-d"
-               (str "refresh_token=" @D_access-token--atm)
+               (str "refresh_token=" @D_refresh-token--atm)
                "https://accounts.spotify.com/api/token")
               :out
               (cheshire.core/parse-string true)
               :access_token)))
-
-(defn login []
-    (let
-        [key (do (println "What's yourkey: ") (flush) (read-line))]
-      (do
-;        (count (build-track-id-map))
-;        (count (analyze-library))
-        (reset! D_access-token--atm (str "Authorization: Bearer " key)))))
 
 (defn debug:print-nil-tracks []
   (clojure.pprint/pprint (select [ALL ALL #(= nil (:valence %))]  @analyzed-tracks)))
