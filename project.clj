@@ -26,6 +26,7 @@
                  [environ "1.1.0"]
                  [com.rpl/specter "1.1.1"]
                  [cheshire "5.8.0"]
+                 [ubergraph "0.5.0"]
                  [com.cerner/clara-rules "0.18.0"]
                  [core.logic "0.6.1-SNAPSHOT"]
                  [org.clojure/core.logic "0.8.11"]
@@ -38,7 +39,7 @@
 
   ;; :main music-classifier.data
   :aot :all
-  :repl-options {:init-ns music-classifier.data}
+  :repl-options {:init-ns music-classifier.api}
   :ring {:handler music-classifier.api/handler
          :nrepl {:start? true
                  :port 9000

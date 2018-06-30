@@ -1,0 +1,12 @@
+
+(ns music-classifier.design
+    (:require        
+       [clojure.tools.logging]
+       [ubergraph.core])
+      (:use [clojure.java.shell :only [sh]]))
+
+  (def ns-dependencies
+    (ubergraph.core/graph [:core :auth][:auth :data][:data :api]))
+
+(defn ns-dependencies-pp []
+  (ubergraph.core/pprint ns-dependencies))

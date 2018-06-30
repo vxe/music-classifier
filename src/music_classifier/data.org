@@ -6,18 +6,12 @@
 #+BEGIN_SRC clojure :tangle data.clj
   (ns music-classifier.data
     (:require [clj-http.client]
-              [clojure.data.codec.base64 :as b64])
+              [clojure.data.codec.base64 :as b64]
+              [music-classifier.auth :refer :all])
     (:use [com.rpl.specter]
-          [clojure.core.logic :exclude [pred]]
           [clojure.java.shell :only [sh]]))
-
 #+END_SRC
 * utilities
-** base64 encode
-#+BEGIN_SRC clojure :tangle data.clj
-(defn encode-base64 [original]
-  (String. (b64/encode (.getBytes original)) "UTF-8"))
-#+END_SRC
 * constants
 ** pitch class to key mapping
  #+BEGIN_SRC clojure :tangle data.clj
@@ -28,113 +22,6 @@
  (def pitch-keys {:c 0 :c# 1 :d 2 :d# 3 :e 4 :f 5 :f# 6 :g 7 :g# 8 :a 9 :a# 10 :b 11})
  #+END_SRC
 * components
-** _login system
-*** reference types
-**** atoms (D_...--atm)
-***** authorization code
-#+BEGIN_SRC clojure :tangle data.clj
-  (def D_authorization-code--atm (atom ""))
-
-  (defn D_set-authorization-code! [resp]
-    (reset! D_authorization-code--atm resp))
-#+END_SRC
-***** client id
-#+BEGIN_SRC clojure :tangle data.clj
-  (def D_client-id--atm (atom ""))
-
-(defn D_set-client-id--atm [id]
-                         (reset! D_client-id--atm id)
-                         )
-#+END_SRC
-***** client secret
-#+BEGIN_SRC clojure :tangle data.clj
-  (def D_client-secret--atm (atom ""))
-
-  (defn D_set-client-secret--atm [secret]
-    (reset! D_client-secret--atm secret))
-#+END_SRC
-***** refresh token
-      #+BEGIN_SRC clojure :tangle data.clj
-        (def D_refresh-token--atm (atom ""))
-      #+END_SRC
-      #+BEGIN_SRC clojure :tangle data.clj
-        ;; (defn D-set-client-refresh-token! []
-        ;;   (let [token (do (println "What's your client refresh-token: ") (flush) (read-line))]
-        ;;     (reset! D-refresh-token--atm token)))
-
-        (defn D_set-client-refresh-token! [token]
-          (reset! D_refresh-token--atm token))
-#+END_SRC
-***** access token
- #+BEGIN_SRC clojure :tangle data.clj
-             (def D_access-token--atm (atom ""))
-
-    (defn D_set-access-token! []
-      (reset! D_refresh-token--atm
-                         (-> "curl"
-                             (sh
-                              "-s"
-                              "-H"
-                              (str "Authorization: Basic " (encode-base64 (str
-                                                                           @D_client-id--atm
-                                                                           ":"
-                                                                           @D_client-secret--atm)))
-                              "-d"
-                              "grant_type=authorization_code"
-                              "-d"
-                              (str "code=" @D_authorization-code--atm)
-                              "-d"
-                              (str "redirect_uri=" "http%3A%2F%2Flocalhost:8888%2Fcallback")
-                              "https://accounts.spotify.com/api/token")
-                             :out
-                             (cheshire.core/parse-string true)
-                             :refresh_token)))
-
-   (defn D_refresh-access-token! []
-     (reset! D_access-token--atm
-             (-> "curl"
-                 (sh
-                  "-s"
-                  "-H"
-                  (str "Authorization: Basic " (encode-base64 (str
-                                                               @D_client-id--atm
-                                                               ":"
-                                                               @D_client-secret--atm)))
-                  "-d"
-                  "grant_type=refresh_token"
-                  "-d"
-                  (str "refresh_token=" @D_refresh-token--atm)
-                  "https://accounts.spotify.com/api/token")
-                 :out
-                 (cheshire.core/parse-string true)
-                 :access_token)))
-
-             ;; (defn D_set-refresh-access-token! []
-             ;;   (reset! D_access-token--atm
-             ;;           (-> "curl"
-             ;;               (sh
-             ;;                "-s"
-             ;;                "-H"
-             ;;                (str "Authorization: Basic " (encode-base64 (str
-             ;;                                                             @D_client-id--atm
-             ;;                                                             ":"
-             ;;                                                             @D_client-secret--atm)))
-             ;;                "-d"
-             ;;                "grant_type=refresh_token"
-             ;;                "-d"
-             ;;                (str "refresh_token=" @D_refresh-token--atm)
-             ;;                "https://accounts.spotify.com/api/token")
-             ;;               :out
-             ;;               (cheshire.core/parse-string true)
-             ;;               :access_token)))
- #+END_SRC
-**** agents (D_...--agt)
-**** refs (D_...--ref)
-*** IO
-**** web (io_...--web)
-**** database (io_...--db)
-**** filesystem (io_...--fs)
-*** compute
 ** _spotify-api-fetch system
 *** reference types
 **** atoms (D_...--atm)
@@ -417,67 +304,6 @@
 
 
  #+END_SRC
-** cli
-*** client id
-
-*** set client id
-#+BEGIN_SRC clojure :tangle data.clj
-  (defn set-D_client-id--atm []
-    (let [id (do (println "What's your client id: ") (flush) (read-line))]
-      (reset! D_client-id--atm id)))
-#+END_SRC
-*** client secret
-#+BEGIN_SRC clojure :tangle data.clj
-(def D_client-secret--atm (atom ""))
-#+END_SRC
-
-*** set client secret
-#+BEGIN_SRC clojure :tangle data.clj
-  (defn set-D_client-secret--atm []
-    (let [secret (do (println "What's your client secret: ") (flush) (read-line))]
-      (reset! D_client-secret--atm secret)))
-#+END_SRC
-*** refresh token
-
-*** set refresh token
-
-*** TODO refresh api token - fix client id auth issue
-essentially this should return a json value which looks like this
-#+BEGIN_EXAMPLE json
-{
-   "access_token": "NgA6ZcYI...ixn8bUQ",
-   "token_type": "Bearer",
-   "scope": "user-read-private user-read-email", // playlist-read-private user-library-read 
-   "expires_in": 3600
-}
-#+END_EXAMPLE
-
-containing a new access token, from this do a reset! of token and all should be well.
-
-after this basically all callers should try catch the request, and in the of a timeout
-do a blocking refresh call and then retry the whole request
-
-
-#+BEGIN_SRC clojure :tangle data.clj
-  (defn refresh-access-token []
-    (reset! D_access-token--atm
-            (-> "curl"
-                (sh
-                 "-s"
-                 "-H"
-                 (str "Authorization: Basic " (encode-base64 (str
-                                                              @D_client-id--atm
-                                                              ":"
-                                                              @D_client-secret--atm)))
-                 "-d"
-                 "grant_type=refresh_token"
-                 "-d"
-                 (str "refresh_token=" @D_refresh-token--atm)
-                 "https://accounts.spotify.com/api/token")
-                :out
-                (cheshire.core/parse-string true)
-                :access_token)))
-#+END_SRC
 ** debug
 #+BEGIN_SRC clojure :tangle data.clj
    (defn debug:print-nil-tracks []
@@ -493,3 +319,4 @@ do a blocking refresh call and then retry the whole request
 
 https://accounts.spotify.com/authorize/?client_id=e11274026afa4840b9b715e7cb0d8fbb&response_type=code&redirect_uri=http://localhost:8888/callback&scope=playlist-read-private%20user-library-read&state=34fFs29kd09
 https://accounts.spotify.com/authorize/?client_id=e11274026afa4840b9b715e7cb0d8fbb&response_type=code&redirect_uri=http://localhost:8888/callback&scope=playlist-read-private
+

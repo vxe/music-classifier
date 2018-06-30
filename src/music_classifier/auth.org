@@ -1,0 +1,120 @@
+#+BEGIN_SRC clojure :tangle auth.clj
+  (ns music-classifier.auth
+    (:require        
+     [clojure.pprint]
+     [cheshire.core]
+     [clojure.tools.logging]
+     [liberator.core :refer [resource defresource]]
+     [ring.middleware.params :refer [wrap-params]]
+     [compojure.core :refer [defroutes ANY]]
+     [clojure.data.codec.base64 :as b64])
+    (:use [clojure.java.shell :only [sh]]))
+
+
+
+#+END_SRC
+
+* utilities
+** base64 encode
+#+BEGIN_SRC clojure :tangle auth.clj
+(defn encode-base64 [original]
+  (String. (b64/encode (.getBytes original)) "UTF-8"))
+#+END_SRC
+* constants
+* components
+** _configuration-reader system
+*** reference types
+**** atoms (D_...--atm)
+***** client-secret
+#+BEGIN_SRC clojure :tangle auth.clj
+  (def D_client-secret--atm (atom ""))
+#+END_SRC
+***** client-id
+#+BEGIN_SRC clojure :tangle auth.clj
+  (def D_client-id--atm (atom ""))
+#+END_SRC
+**** agents (D_...--agt)
+**** refs (D_...--ref)
+*** IO
+**** web (io_...--web)
+**** database (io_...--db)
+**** filesystem (io_...--fs)
+     #+BEGIN_SRC clojure :tangle auth.clj
+  (defn io_read-configuration--fs []
+    (let [config-file (read-string (slurp "./.music-classifierrc"))
+          client-secret  (:client-secret config-file)
+          client-id (:client-id config-file)]
+      (future (reset! D_client-secret--atm client-secret))
+      (future (reset! D_client-id--atm client-id))))
+#+END_SRC
+- the two calls to future are to actually get the reset to take place, it seems the do not without
+*** compute
+** _login system
+*** reference types
+**** atoms (D_...--atm)
+***** authorization code
+#+BEGIN_SRC clojure :tangle auth.clj
+  (def D_authorization-code--atm (atom ""))
+  (defn D_set-authorization-code! [resp]
+    (reset! D_authorization-code--atm resp))
+#+END_SRC
+***** refresh token
+      #+BEGIN_SRC clojure :tangle auth.clj
+        (def D_refresh-token--atm (atom ""))
+      #+END_SRC
+***** access token
+ #+BEGIN_SRC clojure :tangle auth.clj
+    (def D_access-token--atm (atom ""))
+
+   (defn D_set-access-token! []
+     (reset! D_refresh-token--atm
+                        (-> "curl"
+                            (sh
+                             "-s"
+                             "-H"
+                             (str "Authorization: Basic " (encode-base64 (str
+                                                                          @D_client-id--atm
+                                                                          ":"
+                                                                          @D_client-secret--atm)))
+                             "-d"
+                             "grant_type=authorization_code"
+                             "-d"
+                             (str "code=" @D_authorization-code--atm)
+                             "-d"
+                             (str "redirect_uri=" "http%3A%2F%2Flocalhost:8888%2Fcallback")
+                             "https://accounts.spotify.com/api/token")
+                            :out
+                            (cheshire.core/parse-string true)
+                            :refresh_token)))
+ #+END_SRC
+      - this requires a valid authorization code to be generated
+**** agents (D_...--agt)
+**** refs (D_...--ref)
+*** IO
+**** web (io_...--web)
+**** database (io_...--db)
+**** filesystem (io_...--fs)
+*** compute
+***** renew access token
+      #+BEGIN_SRC clojure :tangle auth.clj
+        (defn D_refresh-access-token! []
+          (reset! D_access-token--atm
+                  (-> "curl"
+                      (sh
+                       "-s"
+                       "-H"
+                       (str "Authorization: Basic " (encode-base64 (str
+                                                                    @D_client-id--atm
+                                                                    ":"
+                                                                    @D_client-secret--atm)))
+                       "-d"
+                       "grant_type=refresh_token"
+                       "-d"
+                       (str "refresh_token=" @D_refresh-token--atm)
+                       "https://accounts.spotify.com/api/token")
+                      :out
+                      (cheshire.core/parse-string true)
+                      :access_token)))
+
+      #+END_SRC
+      

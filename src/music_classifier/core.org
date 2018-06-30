@@ -8,6 +8,18 @@
     (:require [clj-http.client]
               [clojure.data.codec.base64 :as b64])
     (:use [com.rpl.specter]
+          [clojure.java.shell :only [sh]])
+    (:import java.util.Base64))
+
+#+END_SRC
+
+* utilities
+
+* constants
+
+* components
+
+* experimental
           [clojure.core.logic :exclude [pred]]
           [clojure.java.shell :only [sh]]))
 
