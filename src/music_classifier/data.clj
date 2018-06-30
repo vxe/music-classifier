@@ -1,103 +1,14 @@
 
 (ns music-classifier.data
   (:require [clj-http.client]
-            [clojure.data.codec.base64 :as b64])
+            [clojure.data.codec.base64 :as b64]
+            [music-classifier.auth :refer :all])
   (:use [com.rpl.specter]
-        [clojure.core.logic :exclude [pred]]
         [clojure.java.shell :only [sh]]))
-
-(defn encode-base64 [original]
-  (String. (b64/encode (.getBytes original)) "UTF-8"))
 
 (def pitch-classes [:c :c# :d :d# :e :f :f# :g :g# :a :a# :b])
 
 (def pitch-keys {:c 0 :c# 1 :d 2 :d# 3 :e 4 :f 5 :f# 6 :g 7 :g# 8 :a 9 :a# 10 :b 11})
-
-(def D_authorization-code--atm (atom ""))
-
-(defn D_set-authorization-code! [resp]
-  (reset! D_authorization-code--atm resp))
-
-(def D_client-id--atm (atom ""))
-
-(defn D_set-client-id--atm [id]
-                         (reset! D_client-id--atm id)
-                         )
-
-(def D_client-secret--atm (atom ""))
-
-(defn D_set-client-secret--atm [secret]
-  (reset! D_client-secret--atm secret))
-
-(def D_refresh-token--atm (atom ""))
-
-;; (defn D-set-client-refresh-token! []
-;;   (let [token (do (println "What's your client refresh-token: ") (flush) (read-line))]
-;;     (reset! D-refresh-token--atm token)))
-
-(defn D_set-client-refresh-token! [token]
-  (reset! D_refresh-token--atm token))
-
-(def D_access-token--atm (atom ""))
-
- (defn D_set-access-token! []
-   (reset! D_refresh-token--atm
-                      (-> "curl"
-                          (sh
-                           "-s"
-                           "-H"
-                           (str "Authorization: Basic " (encode-base64 (str
-                                                                        @D_client-id--atm
-                                                                        ":"
-                                                                        @D_client-secret--atm)))
-                           "-d"
-                           "grant_type=authorization_code"
-                           "-d"
-                           (str "code=" @D_authorization-code--atm)
-                           "-d"
-                           (str "redirect_uri=" "http%3A%2F%2Flocalhost:8888%2Fcallback")
-                           "https://accounts.spotify.com/api/token")
-                          :out
-                          (cheshire.core/parse-string true)
-                          :refresh_token)))
-
-(defn D_refresh-access-token! []
-  (reset! D_access-token--atm
-          (-> "curl"
-              (sh
-               "-s"
-               "-H"
-               (str "Authorization: Basic " (encode-base64 (str
-                                                            @D_client-id--atm
-                                                            ":"
-                                                            @D_client-secret--atm)))
-               "-d"
-               "grant_type=refresh_token"
-               "-d"
-               (str "refresh_token=" @D_refresh-token--atm)
-               "https://accounts.spotify.com/api/token")
-              :out
-              (cheshire.core/parse-string true)
-              :access_token)))
-
-          ;; (defn D_set-refresh-access-token! []
-          ;;   (reset! D_access-token--atm
-          ;;           (-> "curl"
-          ;;               (sh
-          ;;                "-s"
-          ;;                "-H"
-          ;;                (str "Authorization: Basic " (encode-base64 (str
-          ;;                                                             @D_client-id--atm
-          ;;                                                             ":"
-          ;;                                                             @D_client-secret--atm)))
-          ;;                "-d"
-          ;;                "grant_type=refresh_token"
-          ;;                "-d"
-          ;;                (str "refresh_token=" @D_refresh-token--atm)
-          ;;                "https://accounts.spotify.com/api/token")
-          ;;               :out
-          ;;               (cheshire.core/parse-string true)
-          ;;               :access_token)))
 
 (defn io_hit-api-endpoint--web [endpoint]
   (second
@@ -290,35 +201,6 @@
   (remove nil? (for [[k v] @analyzed-tracks]
                 (if (comparison (first (select [:acousticness] v)) acousticness)
                   (:id v)))))
-
-(defn set-D_client-id--atm []
-  (let [id (do (println "What's your client id: ") (flush) (read-line))]
-    (reset! D_client-id--atm id)))
-
-(def D_client-secret--atm (atom ""))
-
-(defn set-D_client-secret--atm []
-  (let [secret (do (println "What's your client secret: ") (flush) (read-line))]
-    (reset! D_client-secret--atm secret)))
-
-(defn refresh-access-token []
-  (reset! D_access-token--atm
-          (-> "curl"
-              (sh
-               "-s"
-               "-H"
-               (str "Authorization: Basic " (encode-base64 (str
-                                                            @D_client-id--atm
-                                                            ":"
-                                                            @D_client-secret--atm)))
-               "-d"
-               "grant_type=refresh_token"
-               "-d"
-               (str "refresh_token=" @D_refresh-token--atm)
-               "https://accounts.spotify.com/api/token")
-              :out
-              (cheshire.core/parse-string true)
-              :access_token)))
 
 (defn debug:print-nil-tracks []
   (clojure.pprint/pprint (select [ALL ALL #(= nil (:valence %))]  @analyzed-tracks)))
