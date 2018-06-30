@@ -13,4 +13,4 @@ Use Spotify's audio feature extraction to build playlists
 Import into IDE, no jars being produced yet
 * Usage
 at the moment, get a repl in Emacs or Cursive and start a
-* [[file:src/music_classifier/core.org][Implementation]]
+* [[file:src/music_classifier/README.org][Implementation]]
