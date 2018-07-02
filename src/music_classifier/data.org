@@ -335,3 +335,33 @@ io_
 
  #+END_SRC
 
+
+** _playlist-extraction
+*** reference types
+**** atoms
+#+BEGIN_SRC clojure :tangle data.clj
+(def atm--all-tracks (atom []))
+#+END_SRC
+**** agents 
+**** refs
+*** IO
+**** web (io_...--web)
+#+BEGIN_SRC clojure :tangle data.clj
+  (defn io-web--get-library-tracks
+                          ([]
+                           (clj-http.client/get "https://api.spotify.com/v1/me/tracks?limit=50" {:headers {"Authorization" (str "Bearer " @D_access-token--atm)}})
+
+                           )
+                          ([offset]
+                           (clj-http.client/get (str "https://api.spotify.com/v1/me/tracks?limit=50&offset=" offset) {:headers {"Authorization" (str "Bearer " @D_access-token--atm)}})
+
+                           )
+    )
+
+#+END_SRC
+**** database (io_...--db)
+**** filesystem (io_...--fs)
+*** compute
+#+BEGIN_SRC clojure
+    
+#+END_SRC    
