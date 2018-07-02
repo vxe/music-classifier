@@ -23,6 +23,59 @@
  (def pitch-keys {:c 0 :c# 1 :d 2 :d# 3 :e 4 :f 5 :f# 6 :g 7 :g# 8 :a 9 :a# 10 :b 11})
  #+END_SRC
 * components
+* experimental
+** audio features for all tracks in currents user's library
+#+BEGIN_SRC clojure :tangle data.clj
+  (def analyzed-tracks (agent {}))
+
+  (defn get-audio-features-by-track-id [id]
+    (cheshire.core/parse-string
+     (:out
+      (sh "curl"
+          "-s"
+          "-H"
+          @D_access-token--atm
+          (str "https://api.spotify.com/v1/audio-features/" id))) true))
+
+  (defn analyze-library []
+    (pmap (fn [id]
+            (if (or (:error ((keyword id) @analyzed-tracks))
+                    (= nil ((keyword id) @analyzed-tracks)))
+              (do
+                (prn id " is nil")
+                (future (send analyzed-tracks assoc (keyword id) (get-audio-features-by-track-id id))))))
+          (select [ALL :id] (io_get-all-library-track-names--web))))
+
+#+END_SRC
+*** TODO song to artist mapping
+** debug
+#+BEGIN_SRC clojure :tangle data.clj
+   (defn debug:print-nil-tracks []
+     (clojure.pprint/pprint (select [ALL ALL #(= nil (:valence %))]  @analyzed-tracks)))
+
+
+   (defn debug:find-nil-tracks []
+     (select [ALL ALL #(= nil (:valence %))]  @analyzed-tracks))
+
+
+#+END_SRC
+
+** _library-maintenance subsystem
+*** reference types
+**** atoms (D_...--atm)
+**** agents (D_...--agt)
+**** refs (D_...--ref)
+*** IO
+**** web (io_...--web)
+**** database (io_...--db)
+#+BEGIN_SRC clojure
+io_
+#+END_SRC
+**** filesystem (io_...--fs)
+*** compute
+#+BEGIN_SRC clojure
+    
+#+END_SRC    
 ** _track-search subsystem
 *** reference types
 **** atoms (D_...--atm)
@@ -281,42 +334,4 @@
 
 
  #+END_SRC
-* experimental
-** audio features for all tracks in currents user's library
-#+BEGIN_SRC clojure :tangle data.clj
-  (def analyzed-tracks (agent {}))
-
-  (defn get-audio-features-by-track-id [id]
-    (cheshire.core/parse-string
-     (:out
-      (sh "curl"
-          "-s"
-          "-H"
-          @D_access-token--atm
-          (str "https://api.spotify.com/v1/audio-features/" id))) true))
-
-  (defn analyze-library []
-    (pmap (fn [id]
-            (if (or (:error ((keyword id) @analyzed-tracks))
-                    (= nil ((keyword id) @analyzed-tracks)))
-              (do
-                (prn id " is nil")
-                (future (send analyzed-tracks assoc (keyword id) (get-audio-features-by-track-id id))))))
-          (select [ALL :id] (io_get-all-library-track-names--web))))
-
-#+END_SRC
-*** TODO song to artist mapping
-** debug
-#+BEGIN_SRC clojure :tangle data.clj
-   (defn debug:print-nil-tracks []
-     (clojure.pprint/pprint (select [ALL ALL #(= nil (:valence %))]  @analyzed-tracks)))
-
-
-   (defn debug:find-nil-tracks []
-     (select [ALL ALL #(= nil (:valence %))]  @analyzed-tracks))
-
-
-#+END_SRC
-
-
 
