@@ -1,4 +1,3 @@
-
 (ns music-classifier.auth
   (:require        
    [clojure.pprint]

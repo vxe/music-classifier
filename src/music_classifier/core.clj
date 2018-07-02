@@ -4,8 +4,6 @@
   (:use [com.rpl.specter]
         [clojure.java.shell :only [sh]])
   (:import java.util.Base64))
-        [clojure.core.logic :exclude [pred]]
-        [clojure.java.shell :only [sh]]))
 
 (defn encode-base64 [original]
   (String. (b64/encode (.getBytes original)) "UTF-8"))

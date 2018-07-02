@@ -1,4 +1,3 @@
-
 (ns music-classifier.data
   (:require [clj-http.client]
             [clojure.data.codec.base64 :as b64]

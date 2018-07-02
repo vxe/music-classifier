@@ -1,4 +1,3 @@
-
 (ns music-classifier.api
   (:require        
    [music-classifier.auth :refer :all]
