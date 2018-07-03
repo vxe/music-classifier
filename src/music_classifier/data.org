@@ -4,12 +4,13 @@
 #+OPTIONS: toc:nil
 
 #+BEGIN_SRC clojure :tangle data.clj
-  (ns music-classifier.data
-    (:require [clj-http.client]
-              [clojure.data.codec.base64 :as b64]
-              [music-classifier.auth :refer :all])
-    (:use [com.rpl.specter]
-          [clojure.java.shell :only [sh]]))
+    (ns music-classifier.data
+      (:require [clj-http.client]
+                [clojure.data.codec.base64 :as b64]
+                [clojure.contrib.sql :as sql]
+                [music-classifier.auth :refer :all])
+      (:use [com.rpl.specter]
+            [clojure.java.shell :only [sh]]))
 #+END_SRC
 * utilities
 * constants
@@ -22,104 +23,8 @@
  (def pitch-keys {:c 0 :c# 1 :d 2 :d# 3 :e 4 :f 5 :f# 6 :g 7 :g# 8 :a 9 :a# 10 :b 11})
  #+END_SRC
 * components
-** _spotify-api-fetch system
-*** reference types
-**** atoms (D_...--atm)
-**** agents (D_...--agt)
-**** refs (D_...--ref)
-*** IO
-**** web (io_...--web)
-***** make request with access token, refresh if needed
-      #+BEGIN_SRC clojure :tangle data.clj
-        (defn io_hit-api-endpoint--web [endpoint]
-          (second
-           (second
-            (try 
-              (cheshire.core/parse-string
-               (:out
-                (sh "curl"
-                    "-s"
-                    "-H"
-                    (str "Authorization: Bearer " @D_access-token--atm)
-                    (str "https://api.spotify.com/v1/me/tracks?limit=10"))) true)
-                  (catch Exception e
-              (do (D_refresh-access-token!)
-                  (cheshire.core/parse-string
-                   (:out
-                    (sh "curl"
-                        "-s"
-                        "-H"
-                        @D_access-token--atm
-                        (str "https://api.spotify.com/v1/me/tracks?limit=10"))) true)))))))
-      #+END_SRC
-***** TODO get all tracks from library use refreshable endpoint call
- #+BEGIN_SRC clojure :tangle data.clj
-   (defn io_get-all-library-track-names--web []
-     (flatten
-      (distinct
-       (select [ALL :track]
-                 (second
-                  (second
-                   (cheshire.core/parse-string
-                    (:out
-                     (sh "curl"
-                         "-s"
-                         "-H"
-                         @D_access-token--atm
-                         (str "https://api.spotify.com/v1/me/tracks?limit=10"))) true)))))))
- #+END_SRC
-***** TODO get all track ids from library use refreshable endpoint call
- #+BEGIN_SRC clojure :tangle data.clj
-   (defn io_get-all-library-track-ids--web []
-     (flatten
-      (distinct
-       (select [ALL :track :id]
-                 (second
-                  (second
-                   (cheshire.core/parse-string
-                    (:out
-                     (sh "curl"
-                         "-s"
-                         "-H"
-                         @D_access-token--atm
-                         (str "https://api.spotify.com/v1/me/tracks?limit=50"))) true))))
-   )))
- #+END_SRC
-***** TODO get all track names from library use refreshable endpoint call
- #+BEGIN_SRC clojure :tangle data.clj
-   (defn io_get-all-library-track-names--web []
-     (flatten
-      (distinct
-       (select [ALL :track :name]
-                 (second
-                  (second
-                   (cheshire.core/parse-string
-                    (:out
-                     (sh "curl"
-                         "-s"
-                         "-H"
-                         @D_access-token--atm
-                         (str "https://api.spotify.com/v1/me/tracks?limit=50"))) true)))))))
- #+END_SRC
-**** database (io_...--db)
-**** filesystem (io_...--fs)
-*** compute
 * experimental
-** internal data structures
-*** track id to name mapping
-    #+BEGIN_SRC clojure :tangle data.clj
-      (def track-id-name-map (atom {}))
-
-      (defn build-track-id-map []
-        (for [track (io_get-all-library-track-names--web)]
-          (cond (= nil (:id track)) (prn (str  "id " (:id track) " is missing" ))
-                (= nil (:name track)) (prn (str "track name " (:name track) " is missing"))
-                :else
-                (swap! track-id-name-map assoc (keyword (:id track))  (:name track)))))
-
-    #+END_SRC
-
-*** audio features for all tracks in currents user's library
+** audio features for all tracks in currents user's library
 #+BEGIN_SRC clojure :tangle data.clj
   (def analyzed-tracks (agent {}))
 
@@ -143,8 +48,130 @@
 
 #+END_SRC
 *** TODO song to artist mapping
-** searching
-*** track name by id
+** debug
+#+BEGIN_SRC clojure :tangle data.clj
+   (defn debug:print-nil-tracks []
+     (clojure.pprint/pprint (select [ALL ALL #(= nil (:valence %))]  @analyzed-tracks)))
+
+
+   (defn debug:find-nil-tracks []
+     (select [ALL ALL #(= nil (:valence %))]  @analyzed-tracks))
+
+
+#+END_SRC
+
+** _library-maintenance subsystem
+*** reference types
+**** atoms (D_...--atm)
+**** agents (D_...--agt)
+**** refs (D_...--ref)
+*** IO
+**** web (io_...--web)
+**** database (io_...--db)
+**** filesystem (io_...--fs)
+*** compute
+#+BEGIN_SRC clojure
+    
+#+END_SRC    
+** _track-search subsystem
+*** reference types
+**** atoms (D_...--atm)
+***** id-to-name mapping
+    #+BEGIN_SRC clojure :tangle data.clj
+      (def track-id-name-map (atom {}))
+
+      (defn build-track-id-map []
+        (for [track (io_get-all-library-track-names--web)]
+          (cond (= nil (:id track)) (prn (str  "id " (:id track) " is missing" ))
+                (= nil (:name track)) (prn (str "track name " (:name track) " is missing"))
+                :else
+                (swap! track-id-name-map assoc (keyword (:id track))  (:name track)))))
+
+    #+END_SRC
+
+**** agents (D_...--agt)
+**** refs (D_...--ref)
+*** IO
+**** web (io_...--web)
+***** audio-analysis
+***** /audio-features
+***** /tracks
+      #+BEGIN_SRC clojure :tangle data.clj
+        (defn io_hit-tracks-endpoint--web [ids]
+          (second
+           (second
+            (try 
+              (cheshire.core/parse-string
+               (:out
+                (sh "curl"
+                    "-s"
+                    "-H"
+                    (str "Authorization: Bearer " @D_access-token--atm)
+                    (str "https://api.spotify.com/v1/me/tracks?limit=10"))) true)
+                  (catch Exception e
+              (do (D_refresh-access-token!)
+                  (cheshire.core/parse-string
+                   (:out
+                    (sh "curl"
+                        "-s"
+                        "-H"
+                        @D_access-token--atm
+                        (str "https://api.spotify.com/v1/me/tracks?limit=10"))) true)))))))
+      #+END_SRC
+***** all tracks
+ #+BEGIN_SRC clojure :tangle data.clj
+   (defn io_get-all-library-track-names--web []
+     (flatten
+      (distinct
+       (select [ALL :track]
+                 (second
+                  (second
+                   (cheshire.core/parse-string
+                    (:out
+                     (sh "curl"
+                         "-s"
+                         "-H"
+                         @D_access-token--atm
+                         (str "https://api.spotify.com/v1/me/tracks?limit=10"))) true)))))))
+ #+END_SRC
+***** all track id_s?
+ #+BEGIN_SRC clojure :tangle data.clj
+   (defn io_get-all-library-track-ids--web []
+     (flatten
+      (distinct
+       (select [ALL :track :id]
+                 (second
+                  (second
+                   (cheshire.core/parse-string
+                    (:out
+                     (sh "curl"
+                         "-s"
+                         "-H"
+                         @D_access-token--atm
+                         (str "https://api.spotify.com/v1/me/tracks?limit=50"))) true))))
+   )))
+ #+END_SRC
+***** all track names
+ #+BEGIN_SRC clojure :tangle data.clj
+   (defn io_get-all-library-track-names--web []
+     (flatten
+      (distinct
+       (select [ALL :track :name]
+                 (second
+                  (second
+                   (cheshire.core/parse-string
+                    (:out
+                     (sh "curl"
+                         "-s"
+                         "-H"
+                         @D_access-token--atm
+                         (str "https://api.spotify.com/v1/me/tracks?limit=50"))) true)))))))
+ #+END_SRC
+**** database (io_...--db)
+***** update database for new tracks
+**** filesystem (io_...--fs)
+*** compute
+**** track name by id
  #+BEGIN_SRC clojure :tangle data.clj
     (defn lookup-track-name-by-id [id]
       (let [name ((keyword id) @track-id-name-map)]
@@ -152,14 +179,14 @@
           (prn id " is mising")
           name)))
  #+END_SRC
-*** track id by name
+**** track id by name
  #+BEGIN_SRC clojure :tangle data.clj
     (defn lookup-track-id-by-name [name]
       (remove nil? (for [[k v] @track-id-name-map]
                      (if (= name v)
                        k))))
  #+END_SRC
-*** track id by regex
+**** track id by regex
  #+BEGIN_SRC clojure :tangle data.clj
    (defn lookup-track-id-by-regex [regex]
      (remove nil? (for [[k v] @track-id-name-map]
@@ -168,13 +195,13 @@
                         k
                         (build-track-id-map))))))
  #+END_SRC
-*** get audio features by track name
+**** get audio features by track name
     #+BEGIN_SRC clojure :tangle data.clj
         (defn lookup-audio-features-by-track-name [name]
       ((first (lookup-track-id-by-name name)) @analyzed-tracks))
 
     #+END_SRC
-*** get audio features by regex
+**** get audio features by regex
 #+BEGIN_SRC clojure :tangle data.clj
   ;; (defn lookup-audio-features-by-track-regex [title]
   ;;   (let [track (lookup-track-id-by-regex title)]
@@ -187,7 +214,7 @@
       (defn lookup-audio-features-by-track-regex [title]
         ((first (lookup-track-id-by-regex title)) @analyzed-tracks))
 #+END_SRC
-*** track by feature and value
+**** track by feature and value
 #+BEGIN_SRC 
    (defn lookup-track-by-feature [feature comparison value]
      (remove nil? (for [[k v] @analyzed-tracks]
@@ -195,7 +222,7 @@
                       (:id v)))))
 
 #+END_SRC
-*** track by valence 
+**** track by valence 
 #+BEGIN_SRC clojure :tangle data.clj
    (defn lookup-track-by-valence [comparison valence]
      (remove nil? (for [[k v] @analyzed-tracks]
@@ -205,7 +232,7 @@
                       ))))
 
 #+END_SRC
-*** track by loudness
+**** track by loudness
 #+BEGIN_SRC clojure :tangle data.clj
    (defn lookup-track-by-loudness [comparison loudness]
      (remove nil? (for [[k v] @analyzed-tracks]
@@ -213,7 +240,7 @@
                       (:id v)))))
 
 #+END_SRC
-*** track by musical key
+**** track by musical key
 #+BEGIN_SRC clojure :tangle data.clj
    (defn lookup-track-by-key [comparison key]
      (remove nil? (for [[k v] @analyzed-tracks]
@@ -221,7 +248,7 @@
                       (:id v)))))
 
 #+END_SRC
-*** track by duration
+**** track by duration
 #+BEGIN_SRC clojure :tangle data.clj
    (defn lookup-track-by-duration [comparison duration]
      (remove nil? (for [[k v] @analyzed-tracks]
@@ -229,7 +256,7 @@
                       (:id v)))))
 
 #+END_SRC
-*** track by instrumentalness
+**** track by instrumentalness
 #+BEGIN_SRC clojure :tangle data.clj
    (defn lookup-track-by-instrumentalness [comparison instrumentalness]
      (remove nil? (for [[k v] @analyzed-tracks]
@@ -237,7 +264,7 @@
                       (:id v)))))
 
 #+END_SRC
-*** track by major or minor mode
+**** track by major or minor mode
 #+BEGIN_SRC clojure :tangle data.clj
    (defn lookup-track-by-mode [comparison mode]
      (remove nil? (for [[k v] @analyzed-tracks]
@@ -245,7 +272,7 @@
                       (:id v)))))
 
 #+END_SRC
-*** track by energy
+**** track by energy
 #+BEGIN_SRC clojure :tangle data.clj
    (defn lookup-track-by-energy [comparison energy]
      (remove nil? (for [[k v] @analyzed-tracks]
@@ -253,7 +280,7 @@
                       (:id v)))))
 
 #+END_SRC
-*** track by speechiness
+**** track by speechiness
 #+BEGIN_SRC clojure :tangle data.clj
    (defn lookup-track-by-speechiness [comparison speechiness]
      (remove nil? (for [[k v] @analyzed-tracks]
@@ -261,7 +288,7 @@
                       (:id v)))))
 
 #+END_SRC
-*** track by time signature
+**** track by time signature
 #+BEGIN_SRC clojure :tangle data.clj
    (defn lookup-track-by-time_signature [comparison time_signature]
      (remove nil? (for [[k v] @analyzed-tracks]
@@ -269,7 +296,7 @@
                       (:id v)))))
 
 #+END_SRC
-*** track by liveness
+**** track by liveness
 #+BEGIN_SRC clojure :tangle data.clj
    (defn lookup-track-by-liveness [comparison liveness]
      (remove nil? (for [[k v] @analyzed-tracks]
@@ -277,7 +304,7 @@
                       (:id v)))))
 
 #+END_SRC
-*** track by danceability
+**** track by danceability
 #+BEGIN_SRC clojure :tangle data.clj
    (defn lookup-track-by-danceability [comparison danceability]
      (remove nil? (for [[k v] @analyzed-tracks]
@@ -285,7 +312,7 @@
                       (:id v)))))
 
 #+END_SRC
-*** track by tempo
+**** track by tempo
 #+BEGIN_SRC clojure :tangle data.clj
    (defn lookup-track-by-tempo [comparison tempo]
      (remove nil? (for [[k v] @analyzed-tracks]
@@ -293,7 +320,7 @@
                       (:id v)))))
 
 #+END_SRC
-*** track by acousticness
+**** track by acousticness
  #+BEGIN_SRC clojure :tangle data.clj
    (defn lookup-track-by-acousticness [comparison acousticness]
      (remove nil? (for [[k v] @analyzed-tracks]
@@ -304,19 +331,70 @@
 
 
  #+END_SRC
-** debug
+
+
+** _playlist-extraction
+*** reference types
+**** atoms
 #+BEGIN_SRC clojure :tangle data.clj
-   (defn debug:print-nil-tracks []
-     (clojure.pprint/pprint (select [ALL ALL #(= nil (:valence %))]  @analyzed-tracks)))
-
-
-   (defn debug:find-nil-tracks []
-     (select [ALL ALL #(= nil (:valence %))]  @analyzed-tracks))
-
-
+(def atm--library (atom {}))
 #+END_SRC
-** experimental
+**** agents 
+**** refs
+*** IO
+**** web (io_...--web)
+***** extract offset
+#+BEGIN_SRC clojure clojure :tangle data.clj
+  (defn io-web--build-track-id-db- [url]
+    (let [current-offset
+          (try
+            (cheshire.core/parse-string (:body (clj-http.client/get url {:headers {"Authorization" (str "Bearer " @D_access-token--atm)}})) true)
+            (catch Exception e
+              (do
+                (D_refresh-access-token!)
+                (cheshire.core/parse-string (:body (clj-http.client/get url {:headers {"Authorization" (str "Bearer " @D_access-token--atm)}})) true))))]
+      (if (nil? (:next current-offset))
+        url
+        (flatten (conj [url] (io-db--build-track-id-db (:next current-offset)))))))
+#+END_SRC
+***** get all track-ids
+#+BEGIN_SRC clojure :tangle data.clj
+  (defn io-web--get-all-track-ids []
+    (flatten (for [offset-url
+                   (io-web--build-track-id-db- "https://api.spotify.com/v1/me/tracks?offset=0&limit=50")]
+               (for [track-data
+                     (try
+                       (:items (cheshire.core/parse-string (:body (clj-http.client/get offset-url  {:headers {"Authorization" (str "Bearer " @D_access-token--atm)}})) true))
+                       (catch Exception e (do
+                                            (D_refresh-access-token!)
+                                            (:items (cheshire.core/parse-string (:body (clj-http.client/get offset-url  {:headers {"Authorization" (str "Bearer " @D_access-token--atm)}})) true)))))]
+                 (:id (:track track-data))))))
+#+END_SRC
+***** build audio features database
+#+BEGIN_SRC clojure :tangle data.clj
+(for [id ["2qN4b7r3dpe8gLJfpKZGdk" "1MXPdYCJiVqTtMu32zFzvP"]] ;; should call get-all-track-ids
+                        (swap! atm--library assoc (keyword id)
+                               (into {}
+                                     [{:track-info (try
+                                        (cheshire.core/parse-string (:body (clj-http.client/get (str "https://api.spotify.com/v1/tracks/" id) {:headers {"Authorization" (str "Bearer " @D_access-token--atm)}})) true)
+                                        (catch Exception e (do
+                                                             (D_refresh-access-token!)
+                                                             (cheshire.core/parse-string (:body (clj-http.client/get (str "https://api.spotify.com/v1/tracks/" id)  {:headers {"Authorization" (str "Bearer " @D_access-token--atm)}})) true))))} 
+                                      {:audio-features (try
+                                         (cheshire.core/parse-string (:body (clj-http.client/get (str "https://api.spotify.com/v1/audio-features/" id) {:headers {"Authorization" (str "Bearer " @D_access-token--atm)}})) true)
+                                         (catch Exception e (do
+                                                              (D_refresh-access-token!)
+                                                              (cheshire.core/parse-string (:body (clj-http.client/get (str "https://api.spotify.com/v1/audio-features/" id)  {:headers {"Authorization" (str "Bearer " @D_access-token--atm)}})) true))))}]
+                                                                    )
+                          )
 
-https://accounts.spotify.com/authorize/?client_id=e11274026afa4840b9b715e7cb0d8fbb&response_type=code&redirect_uri=http://localhost:8888/callback&scope=playlist-read-private%20user-library-read&state=34fFs29kd09
-https://accounts.spotify.com/authorize/?client_id=e11274026afa4840b9b715e7cb0d8fbb&response_type=code&redirect_uri=http://localhost:8888/callback&scope=playlist-read-private
+                        )
+#+END_SRC
+**** database (io_...--db)
+**** filesystem (io_...--fs)
+*** compute
+#+BEGIN_SRC clojure
+    
+#+END_SRC    
+
 

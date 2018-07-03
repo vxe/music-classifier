@@ -1,0 +1,37 @@
+# -*- mode:org -*-
+#+TITLE: Implementation
+#+STARTUP: indent
+#+OPTIONS: toc:nil
+Use Spotify's audio feature extraction to build playlists
+
+** Overview :TOC:
+- [[#expose-library-endpoint][expose library endpoint]]
+- [[#expose-tracks-endpoint][expose tracks endpoint]]
+- [[#expose-search-endpoint][expose search endpoint]]
+- [[#expose-playlist-endpoint][expose playlist endpoint]]
+- [[#expose-browse-endpoint][expose browse endpoint]]
+- [[#expose-artist-endpoint][expose artist endpoint]]
+- [[#expose-albums-endpoint][expose albums endpoint]]
+- [[#personalization][personalization]]
+
+* TODO expose library endpoint
+  - [ ] audio analysis on library
+  - [ ] find related tracksa
+
+* TODO expose tracks endpoint
+  - [ ] audio analysis
+* TODO expose search endpoint
+  - [ ] all search attributes
+  - [ ] custom lucene indexes for aggregates of base searches
+  - 
+* TODO expose playlist endpoint 
+  - [ ] generate playlists
+* TODO expose browse endpoint
+
+* TODO expose artist endpoint
+  - [ ] related artists
+
+* TODO expose albums endpoint
+
+* TODO personalization
+  - [ ] get users top artists and tracks

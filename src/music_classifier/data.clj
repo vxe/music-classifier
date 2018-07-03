@@ -1,6 +1,7 @@
 (ns music-classifier.data
   (:require [clj-http.client]
             [clojure.data.codec.base64 :as b64]
+            [clojure.contrib.sql :as sql]
             [music-classifier.auth :refer :all])
   (:use [com.rpl.specter]
         [clojure.java.shell :only [sh]]))
@@ -9,7 +10,43 @@
 
 (def pitch-keys {:c 0 :c# 1 :d 2 :d# 3 :e 4 :f 5 :f# 6 :g 7 :g# 8 :a 9 :a# 10 :b 11})
 
-(defn io_hit-api-endpoint--web [endpoint]
+(def analyzed-tracks (agent {}))
+
+(defn get-audio-features-by-track-id [id]
+  (cheshire.core/parse-string
+   (:out
+    (sh "curl"
+        "-s"
+        "-H"
+        @D_access-token--atm
+        (str "https://api.spotify.com/v1/audio-features/" id))) true))
+
+(defn analyze-library []
+  (pmap (fn [id]
+          (if (or (:error ((keyword id) @analyzed-tracks))
+                  (= nil ((keyword id) @analyzed-tracks)))
+            (do
+              (prn id " is nil")
+              (future (send analyzed-tracks assoc (keyword id) (get-audio-features-by-track-id id))))))
+        (select [ALL :id] (io_get-all-library-track-names--web))))
+
+(defn debug:print-nil-tracks []
+  (clojure.pprint/pprint (select [ALL ALL #(= nil (:valence %))]  @analyzed-tracks)))
+
+
+(defn debug:find-nil-tracks []
+  (select [ALL ALL #(= nil (:valence %))]  @analyzed-tracks))
+
+(def track-id-name-map (atom {}))
+
+(defn build-track-id-map []
+  (for [track (io_get-all-library-track-names--web)]
+    (cond (= nil (:id track)) (prn (str  "id " (:id track) " is missing" ))
+          (= nil (:name track)) (prn (str "track name " (:name track) " is missing"))
+          :else
+          (swap! track-id-name-map assoc (keyword (:id track))  (:name track)))))
+
+(defn io_hit-tracks-endpoint--web [ids]
   (second
    (second
     (try 
@@ -72,35 +109,6 @@
                       "-H"
                       @D_access-token--atm
                       (str "https://api.spotify.com/v1/me/tracks?limit=50"))) true)))))))
-
-(def track-id-name-map (atom {}))
-
-(defn build-track-id-map []
-  (for [track (io_get-all-library-track-names--web)]
-    (cond (= nil (:id track)) (prn (str  "id " (:id track) " is missing" ))
-          (= nil (:name track)) (prn (str "track name " (:name track) " is missing"))
-          :else
-          (swap! track-id-name-map assoc (keyword (:id track))  (:name track)))))
-
-(def analyzed-tracks (agent {}))
-
-(defn get-audio-features-by-track-id [id]
-  (cheshire.core/parse-string
-   (:out
-    (sh "curl"
-        "-s"
-        "-H"
-        @D_access-token--atm
-        (str "https://api.spotify.com/v1/audio-features/" id))) true))
-
-(defn analyze-library []
-  (pmap (fn [id]
-          (if (or (:error ((keyword id) @analyzed-tracks))
-                  (= nil ((keyword id) @analyzed-tracks)))
-            (do
-              (prn id " is nil")
-              (future (send analyzed-tracks assoc (keyword id) (get-audio-features-by-track-id id))))))
-        (select [ALL :id] (io_get-all-library-track-names--web))))
 
 (defn lookup-track-name-by-id [id]
   (let [name ((keyword id) @track-id-name-map)]
@@ -201,9 +209,45 @@
                 (if (comparison (first (select [:acousticness] v)) acousticness)
                   (:id v)))))
 
-(defn debug:print-nil-tracks []
-  (clojure.pprint/pprint (select [ALL ALL #(= nil (:valence %))]  @analyzed-tracks)))
+(def atm--library (atom {}))
 
+(defn io-web--build-track-id-db- [url]
+  (let [current-offset
+        (try
+          (cheshire.core/parse-string (:body (clj-http.client/get url {:headers {"Authorization" (str "Bearer " @D_access-token--atm)}})) true)
+          (catch Exception e
+            (do
+              (D_refresh-access-token!)
+              (cheshire.core/parse-string (:body (clj-http.client/get url {:headers {"Authorization" (str "Bearer " @D_access-token--atm)}})) true))))]
+    (if (nil? (:next current-offset))
+      url
+      (flatten (conj [url] (io-db--build-track-id-db (:next current-offset)))))))
 
-(defn debug:find-nil-tracks []
-  (select [ALL ALL #(= nil (:valence %))]  @analyzed-tracks))
+(defn io-web--get-all-track-ids []
+  (flatten (for [offset-url
+                 (io-web--build-track-id-db- "https://api.spotify.com/v1/me/tracks?offset=0&limit=50")]
+             (for [track-data
+                   (try
+                     (:items (cheshire.core/parse-string (:body (clj-http.client/get offset-url  {:headers {"Authorization" (str "Bearer " @D_access-token--atm)}})) true))
+                     (catch Exception e (do
+                                          (D_refresh-access-token!)
+                                          (:items (cheshire.core/parse-string (:body (clj-http.client/get offset-url  {:headers {"Authorization" (str "Bearer " @D_access-token--atm)}})) true)))))]
+               (:id (:track track-data))))))
+
+(for [id ["2qN4b7r3dpe8gLJfpKZGdk" "1MXPdYCJiVqTtMu32zFzvP"]] ;; should call get-all-track-ids
+                        (swap! atm--library assoc (keyword id)
+                               (into {}
+                                     [{:track-info (try
+                                        (cheshire.core/parse-string (:body (clj-http.client/get (str "https://api.spotify.com/v1/tracks/" id) {:headers {"Authorization" (str "Bearer " @D_access-token--atm)}})) true)
+                                        (catch Exception e (do
+                                                             (D_refresh-access-token!)
+                                                             (cheshire.core/parse-string (:body (clj-http.client/get (str "https://api.spotify.com/v1/tracks/" id)  {:headers {"Authorization" (str "Bearer " @D_access-token--atm)}})) true))))} 
+                                      {:audio-features (try
+                                         (cheshire.core/parse-string (:body (clj-http.client/get (str "https://api.spotify.com/v1/audio-features/" id) {:headers {"Authorization" (str "Bearer " @D_access-token--atm)}})) true)
+                                         (catch Exception e (do
+                                                              (D_refresh-access-token!)
+                                                              (cheshire.core/parse-string (:body (clj-http.client/get (str "https://api.spotify.com/v1/audio-features/" id)  {:headers {"Authorization" (str "Bearer " @D_access-token--atm)}})) true))))}]
+                                                                    )
+                          )
+
+                        )
