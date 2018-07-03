@@ -68,9 +68,6 @@
 *** IO
 **** web (io_...--web)
 **** database (io_...--db)
-#+BEGIN_SRC clojure
-io_
-#+END_SRC
 **** filesystem (io_...--fs)
 *** compute
 #+BEGIN_SRC clojure
@@ -339,14 +336,16 @@ io_
 ** _playlist-extraction
 *** reference types
 **** atoms
-
+#+BEGIN_SRC clojure :tangle data.clj
+(def atm--library (atom {}))
+#+END_SRC
 **** agents 
 **** refs
 *** IO
 **** web (io_...--web)
-**** database (io_...--db)
-#+BEGIN_SRC clojure
-  (defn io-db--build-track-id-db [url]
+***** extract offset
+#+BEGIN_SRC clojure clojure :tangle data.clj
+  (defn io-web--build-track-id-db- [url]
     (let [current-offset
           (try
             (cheshire.core/parse-string (:body (clj-http.client/get url {:headers {"Authorization" (str "Bearer " @D_access-token--atm)}})) true)
@@ -356,10 +355,42 @@ io_
                 (cheshire.core/parse-string (:body (clj-http.client/get url {:headers {"Authorization" (str "Bearer " @D_access-token--atm)}})) true))))]
       (if (nil? (:next current-offset))
         url
-        (flatten (conj [url] (recur-thing (:next current-offset)))))))
+        (flatten (conj [url] (io-db--build-track-id-db (:next current-offset)))))))
 #+END_SRC
+***** get all track-ids
+#+BEGIN_SRC clojure :tangle data.clj
+  (defn io-web--get-all-track-ids []
+    (flatten (for [offset-url
+                   (io-web--build-track-id-db- "https://api.spotify.com/v1/me/tracks?offset=0&limit=50")]
+               (for [track-data
+                     (try
+                       (:items (cheshire.core/parse-string (:body (clj-http.client/get offset-url  {:headers {"Authorization" (str "Bearer " @D_access-token--atm)}})) true))
+                       (catch Exception e (do
+                                            (D_refresh-access-token!)
+                                            (:items (cheshire.core/parse-string (:body (clj-http.client/get offset-url  {:headers {"Authorization" (str "Bearer " @D_access-token--atm)}})) true)))))]
+                 (:id (:track track-data))))))
+#+END_SRC
+***** build audio features database
+#+BEGIN_SRC clojure :tangle data.clj
+(for [id ["2qN4b7r3dpe8gLJfpKZGdk" "1MXPdYCJiVqTtMu32zFzvP"]] ;; should call get-all-track-ids
+                        (swap! atm--library assoc (keyword id)
+                               (into {}
+                                     [{:track-info (try
+                                        (cheshire.core/parse-string (:body (clj-http.client/get (str "https://api.spotify.com/v1/tracks/" id) {:headers {"Authorization" (str "Bearer " @D_access-token--atm)}})) true)
+                                        (catch Exception e (do
+                                                             (D_refresh-access-token!)
+                                                             (cheshire.core/parse-string (:body (clj-http.client/get (str "https://api.spotify.com/v1/tracks/" id)  {:headers {"Authorization" (str "Bearer " @D_access-token--atm)}})) true))))} 
+                                      {:audio-features (try
+                                         (cheshire.core/parse-string (:body (clj-http.client/get (str "https://api.spotify.com/v1/audio-features/" id) {:headers {"Authorization" (str "Bearer " @D_access-token--atm)}})) true)
+                                         (catch Exception e (do
+                                                              (D_refresh-access-token!)
+                                                              (cheshire.core/parse-string (:body (clj-http.client/get (str "https://api.spotify.com/v1/audio-features/" id)  {:headers {"Authorization" (str "Bearer " @D_access-token--atm)}})) true))))}]
+                                                                    )
+                          )
 
-
+                        )
+#+END_SRC
+**** database (io_...--db)
 **** filesystem (io_...--fs)
 *** compute
 #+BEGIN_SRC clojure

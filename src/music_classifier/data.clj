@@ -210,15 +210,45 @@
                 (if (comparison (first (select [:acousticness] v)) acousticness)
                   (:id v)))))
 
-(def atm--all-tracks (atom []))
+(def atm--library (atom {}))
 
-(defn io-web--get-library-tracks
-                        ([]
-                         (clj-http.client/get "https://api.spotify.com/v1/me/tracks?limit=50" {:headers {"Authorization" (str "Bearer " @D_access-token--atm)}})
+(defn io-web--build-track-id-db- [url]
+  (let [current-offset
+        (try
+          (cheshire.core/parse-string (:body (clj-http.client/get url {:headers {"Authorization" (str "Bearer " @D_access-token--atm)}})) true)
+          (catch Exception e
+            (do
+              (D_refresh-access-token!)
+              (cheshire.core/parse-string (:body (clj-http.client/get url {:headers {"Authorization" (str "Bearer " @D_access-token--atm)}})) true))))]
+    (if (nil? (:next current-offset))
+      url
+      (flatten (conj [url] (io-db--build-track-id-db (:next current-offset)))))))
 
-                         )
-                        ([offset]
-                         (clj-http.client/get (str "https://api.spotify.com/v1/me/tracks?limit=50&offset=" offset) {:headers {"Authorization" (str "Bearer " @D_access-token--atm)}})
+(defn io-web--get-all-track-ids []
+  (flatten (for [offset-url
+                 (io-web--build-track-id-db- "https://api.spotify.com/v1/me/tracks?offset=0&limit=50")]
+             (for [track-data
+                   (try
+                     (:items (cheshire.core/parse-string (:body (clj-http.client/get offset-url  {:headers {"Authorization" (str "Bearer " @D_access-token--atm)}})) true))
+                     (catch Exception e (do
+                                          (D_refresh-access-token!)
+                                          (:items (cheshire.core/parse-string (:body (clj-http.client/get offset-url  {:headers {"Authorization" (str "Bearer " @D_access-token--atm)}})) true)))))]
+               (:id (:track track-data))))))
 
-                         )
-  )
+(for [id ["2qN4b7r3dpe8gLJfpKZGdk" "1MXPdYCJiVqTtMu32zFzvP"]] ;; should call get-all-track-ids
+                        (swap! atm--library assoc (keyword id)
+                               (into {}
+                                     [{:track-info (try
+                                        (cheshire.core/parse-string (:body (clj-http.client/get (str "https://api.spotify.com/v1/tracks/" id) {:headers {"Authorization" (str "Bearer " @D_access-token--atm)}})) true)
+                                        (catch Exception e (do
+                                                             (D_refresh-access-token!)
+                                                             (cheshire.core/parse-string (:body (clj-http.client/get (str "https://api.spotify.com/v1/tracks/" id)  {:headers {"Authorization" (str "Bearer " @D_access-token--atm)}})) true))))} 
+                                      {:audio-features (try
+                                         (cheshire.core/parse-string (:body (clj-http.client/get (str "https://api.spotify.com/v1/audio-features/" id) {:headers {"Authorization" (str "Bearer " @D_access-token--atm)}})) true)
+                                         (catch Exception e (do
+                                                              (D_refresh-access-token!)
+                                                              (cheshire.core/parse-string (:body (clj-http.client/get (str "https://api.spotify.com/v1/audio-features/" id)  {:headers {"Authorization" (str "Bearer " @D_access-token--atm)}})) true))))}]
+                                                                    )
+                          )
+
+                        )
