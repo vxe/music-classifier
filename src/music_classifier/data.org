@@ -339,44 +339,27 @@ io_
 ** _playlist-extraction
 *** reference types
 **** atoms
-***** all tracks
-#+BEGIN_SRC clojure :tangle data.clj
-(def atm--all-tracks (atom []))
-#+END_SRC
-***** track-count
-#+BEGIN_SRC clojure :tangle data.clj 
-(def atm--track-count (atom 0))
-#+END_SRC
+
 **** agents 
 **** refs
 *** IO
 **** web (io_...--web)
-***** get all library tracks
-#+BEGIN_SRC clojure :tangle data.clj
-    (defn io-web--get-library-tracks
-      ([]
-       (try
-         (cheshire.core/parse-string (:body (clj-http.client/get "https://api.spotify.com/v1/me/tracks?limit=1" {:headers {"Authorization" (str "Bearer " @D_access-token--atm)}})) true)
-         (catch Exception e
-           (do  (D_refresh-access-token!)
-                (cheshire.core/parse-string (:body (clj-http.client/get "https://api.spotify.com/v1/me/tracks?limit=50" {:headers {"Authorization" (str "Bearer " @D_access-token--atm)}}))
-                                            true)))))
-      ([offset]
-       (try
-         (cheshire.core/parse-string (:body (clj-http.client/get (str "https://api.spotify.com/v1/me/tracks?limit=50&offset=" offset) {:headers {"Authorization"
-                                                                                                                                                 (str "Bearer " @D_access-token--atm)}}))
-                                     true)
-         (catch Exception e
-           (cheshire.core/parse-string (:body (clj-http.client/get (str "https://api.spotify.com/v1/me/tracks?limit=50&offset=" offset) {:headers {"Authorization" (str "Bearer " @D_access-token--atm)}})) true)))))
-
-#+END_SRC
-***** get library track count
-#+BEGIN_SRC clojure :tangle data.clj
-(defn io-web-get-library-track-count []
-                        (reset! atm--track-count (:total (io-web--get-library-tracks))))
-#+END_SRC
 **** database (io_...--db)
-io-db--build-track-id-database
+#+BEGIN_SRC clojure
+  (defn io-db--build-track-id-db [url]
+    (let [current-offset
+          (try
+            (cheshire.core/parse-string (:body (clj-http.client/get url {:headers {"Authorization" (str "Bearer " @D_access-token--atm)}})) true)
+            (catch Exception e
+              (do
+                (D_refresh-access-token!)
+                (cheshire.core/parse-string (:body (clj-http.client/get url {:headers {"Authorization" (str "Bearer " @D_access-token--atm)}})) true))))]
+      (if (nil? (:next current-offset))
+        url
+        (flatten (conj [url] (recur-thing (:next current-offset)))))))
+#+END_SRC
+
+
 **** filesystem (io_...--fs)
 *** compute
 #+BEGIN_SRC clojure
