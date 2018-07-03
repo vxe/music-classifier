@@ -29,7 +29,9 @@
                  [ubergraph "0.5.0"]
                  [com.cerner/clara-rules "0.18.0"]
                  [core.logic "0.6.1-SNAPSHOT"]
-                 [org.clojure/data.codec "0.1.1"]]
+                 [org.clojure/data.codec "0.1.1"]
+                 [ajure "0.1.10"]
+                 ]
 
   :plugins [[lein-figwheel "0.5.16"]
             [lein-ring "0.12.4"]

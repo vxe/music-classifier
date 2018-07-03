@@ -371,7 +371,7 @@
                  (:id (:track track-data))))))
 #+END_SRC
 ***** build audio features database
-#+BEGIN_SRC clojure :tangle data.clj
+#+BEGIN_SRC clojure 
   (for [id ["2qN4b7r3dpe8gLJfpKZGdk" "1MXPdYCJiVqTtMu32zFzvP"]] ;; should call get-all-track-ids
                           (swap! atm--library assoc (keyword id)
                                  (into {}
@@ -448,6 +448,9 @@
 
 
 
+
+
+
 #+END_SRC
 ***** get tracks
 #+BEGIN_SRC clojure :tangle data.clj
@@ -456,8 +459,15 @@
 **** database (io_...--db)
 **** filesystem (io_...--fs)
 *** compute
+**** songs by key example
 #+BEGIN_SRC clojure
-    
+    (defn songs-by-key [key mode]
+                        (remove empty? (for [track yee]
+                                       (select [ALL  #(and (= mode (:mode (:audio-features %)))
+                                                           (= key (:key (:audio-features %)))
+                                                                          )] track)
+                                       ))
+                        )
 #+END_SRC    
 
 
