@@ -41,7 +41,7 @@
   :repl-options {:init-ns music-classifier.api}
   :ring {:handler music-classifier.api/handler
          :nrepl {:start? true
-                 :port 9000
+                 :port 9002
                  }
          }
   :source-paths ["src"]
