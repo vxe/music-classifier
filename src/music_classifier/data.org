@@ -7,6 +7,7 @@
   (ns music-classifier.data
     (:require [clj-http.client]
               [clojure.data.codec.base64 :as b64]
+              [cheshire.core]
               ;; [clojure.contrib.sql :as sql]
               [music-classifier.auth :refer :all])
     (:use [com.rpl.specter]
@@ -423,21 +424,22 @@
             )
 
 
-  (for [batch (partition 4 (io-web--get-all-track-ids))]
-    (for [id batch] ;; should call get-all-track-ids
-      (if (not (contains? @atm--library (keyword id)))
-        (swap! atm--library assoc-append (keyword id)
-               (into {}
-                     [{:track-info (try
-                                     (cheshire.core/parse-string (:body (clj-http.client/get (str "https://api.spotify.com/v1/tracks/" id) {:headers {"Authorization" (str "Bearer " @D_access-token--atm)}})) true)
-                                     (catch Exception e (prn id " has not track-info")))} 
-                      {:audio-features (try
-                                         (cheshire.core/parse-string (:body (clj-http.client/get (str "https://api.spotify.com/v1/audio-features/" id) {:headers {"Authorization" (str "Bearer " @D_access-token--atm)}})) true)
-                                         (catch Exception e
-                                           (prn id " has-no audio features")))}]
-                     )
-               )                               
-        (prn "skipped id:" id))) )
+  (future (doall (for [batch (partition 4 (io-web--get-all-track-ids))]
+                   (doall
+                    (for [id batch] ;; should call get-all-track-ids
+                      (doall (if (not (contains? @atm--library (keyword id)))
+                               (swap! atm--library assoc-append (keyword id)
+                                      (into {}
+                                            [{:track-info (try
+                                                            (cheshire.core/parse-string (:body (clj-http.client/get (str "https://api.spotify.com/v1/tracks/" id) {:headers {"Authorization" (str "Bearer " @D_access-token--atm)}})) true)
+                                                            (catch Exception e (prn id " has not track-info")))} 
+                                             {:audio-features (try
+                                                                (cheshire.core/parse-string (:body (clj-http.client/get (str "https://api.spotify.com/v1/audio-features/" id) {:headers {"Authorization" (str "Bearer " @D_access-token--atm)}})) true)
+                                                                (catch Exception e
+                                                                  (prn id " has-no audio features")))}]
+                                            )
+                                      )                               
+                               (prn "skipped id:" id))))) )))
 
 
 
